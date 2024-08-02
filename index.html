@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>입찰 정보 지도</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCNmzYD7LP3kMj0yupMVo3Pbg0SMFXeuQ"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <style>
+        #map { height: 80vh; width: 100%; }
+        #log { height: 20vh; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="log"></div>
+    <script>
+        let map;
+        let markers = {};
+        let currentInfoWindow = null;
+
+        function log(message) {
+            document.getElementById('log').innerHTML += message + '<br>';
+            console.log(message);
+        }
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: {lat: 36.5, lng: 127.5},
+                zoom: 7
+            });
+            log('지도 초기화 완료');
+            loadSheetsAPI();
+        }
+
+        function loadSheetsAPI() {
+            log('Sheets API 로딩 중...');
+            gapi.load('client', initClient);
+        }
+
+        function initClient() {
+            log('Google 클라이언트 초기화 중...');
+            gapi.client.init({
+                apiKey: 'AIzaSyBCNmzYD7LP3kMj0yupMVo3Pbg0SMFXeuQ',
+                discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
+            }).then(function() {
+                log('클라이언트 초기화 완료, 스프레드시트 데이터 가져오는 중...');
+                getSpreadsheetData();
+            }).catch(function(error) {
+                log('클라이언트 초기화 실패: ' + JSON.stringify(error, null, 2));
+            });
+        }
+
+        function getSpreadsheetData() {
+            log('스프레드시트 데이터 요청 중...');
+            gapi.client.sheets.spreadsheets.values.get({
+                spreadsheetId: '1nlOSp3I5tlJEorQA1tYkFa3EQQuiJSksrBo8tN4p_5E',
+                range: 'MainData!B:S',
+            }).then(function(response) {
+                log('스프레드시트 데이터 받음');
+                var range = response.result;
+                log('데이터 가져오기 성공. 행 수: ' + (range.values ? range.values.length : 0));
+                if (range.values && range.values.length > 0) {
+                    for (let i = 1; i < range.values.length; i++) {
+                        let row = range.values[i];
+                        addMarkerData(row[0], row[7], row[15], row[17]);
+                    }
+                    log('모든 마커 데이터 추가 완료. 마커 생성 시작...');
+                    createMarkers();
+                } else {
+                    log('데이터가 없거나 비어 있습니다.');
+                }
+            }).catch(function(error) {
+                log('데이터 가져오기 실패: ' + JSON.stringify(error, null, 2));
+            });
+        }
+
+        function addMarkerData(companyName, bidNo, title, link) {
+            if (!companyName) {
+                log('회사명 없음, 마커 데이터 추가 건너뜀');
+                return;
+            }
+            if (!markers[companyName]) {
+                markers[companyName] = [];
+            }
+            markers[companyName].push({bidNo, title, link});
+            log(`마커 데이터 추가: ${companyName} (총 ${markers[companyName].length}개의 공고)`);
+        }
+
+        function createMarkers() {
+            log('마커 생성 시작. 총 회사 수: ' + Object.keys(markers).length);
+            Object.keys(markers).forEach((companyName, index) => {
+                log(`회사 ${index + 1}/${Object.keys(markers).length} 처리 중: ${companyName}`);
+                var geocoder = new google.maps.Geocoder();
+                geocoder.geocode({'address': companyName + ', 대한민국'}, function(results, status) {
+                    if (status === 'OK') {
+                        log(`지오코딩 성공 (${companyName}): ${results[0].geometry.location}`);
+                        var marker = new google.maps.Marker({
+                            map: map,
+                            position: results[0].geometry.location,
+                            title: companyName
+                        });
+                        log('마커 생성 완료: ' + companyName);
+
+                        var infowindowContent = '<h3>' + companyName + '</h3>';
+                        markers[companyName].forEach(item => {
+                            infowindowContent += '<p>입찰공고번호: ' + item.bidNo + '</p>' +
+                                                 '<p><a href="' + item.link + '" target="_blank">' + item.title + '</a></p>';
+                        });
+
+                        var infowindow = new google.maps.InfoWindow({
+                            content: infowindowContent
+                        });
+
+                        marker.addListener('click', function() {
+                            if (currentInfoWindow) {
+                                currentInfoWindow.close();
+                            }
+                            infowindow.open(map, marker);
+                            currentInfoWindow = infowindow;
+                        });
+                    } else {
+                        log('지오코딩 실패 (' + companyName + '): ' + status);
+                    }
+                });
+            });
+        }
+
+        window.onload = initMap;
+    </script>
+</body>
+</html>
