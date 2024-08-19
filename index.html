@@ -75,7 +75,7 @@
                 if (range.values && range.values.length > 0) {
                     for (let i = 1; i < range.values.length; i++) {
                         let row = range.values[i];
-                        addMarkerData(row[1], row[8], row[16], row[18], row[0]);
+                        addMarkerData(row[1], row[8], row[16], row[18], row[0], row[9]);
                     }
                     log('모든 마커 데이터 추가 완료. 마커 생성 시작...');
                     createMarkers();
@@ -88,7 +88,7 @@
             });
         }
 
-        function addMarkerData(companyName, bidNo, title, link, bidType) {
+        function addMarkerData(companyName, bidNo, title, link, bidType, bidReceptionDate) {
             if (!companyName) {
                 log('회사명 없음, 마커 데이터 추가 건너뜀');
                 return;
@@ -96,7 +96,7 @@
             if (!markers[companyName]) {
                 markers[companyName] = [];
             }
-            markers[companyName].push({bidNo, title, link, bidType});
+            markers[companyName].push({bidNo, title, link, bidType, bidReceptionDate});
             log(`마커 데이터 추가: ${companyName} (총 ${markers[companyName].length}개의 공고)`);
         }
 
@@ -119,6 +119,7 @@
                         markers[companyName].forEach(item => {
                             let titlePrefix = item.bidType === '사전' ? '(사전) ' : '';
                             infowindowContent += '<p>입찰공고번호: ' + item.bidNo + '</p>' +
+                                                 '<p>전자입찰접수: ' + item.bidReceptionDate + '</p>' +
                                                  '<p><a href="' + item.link + '" target="_blank">' + titlePrefix + item.title + '</a></p>';
                         });
 
